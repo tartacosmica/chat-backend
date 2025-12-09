@@ -152,7 +152,8 @@ app.post('/api/premium-message', async (req, res) => {
 // Ruta raíz
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'Chat Backend API funcionando',
+        message: 'Chat Backend API v2.0 - Premium Messages',
+        version: '2.0.0',
         endpoints: {
             'GET /api/messages': 'Obtener todos los mensajes',
             'POST /api/messages': 'Enviar un nuevo mensaje',
