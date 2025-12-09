@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection URI - reemplaza <tinchobs> con tu contraseña
+// MongoDB connection URI
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tinchobs:tinchobs@node.xipbq4p.mongodb.net/?appName=node';
 const DB_NAME = 'CHAT';
 const COLLECTION_NAME = 'CHAT';
