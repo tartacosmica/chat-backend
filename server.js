@@ -14,11 +14,9 @@ app.use(express.json());
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tinchobs:tinchobs@node.xipbq4p.mongodb.net/?appName=node';
 const DB_NAME = 'CHAT';
 const COLLECTION_NAME = 'CHAT';
-const PREMIUM_COLLECTION_NAME = 'PREMIUM_MESSAGE';
 
 let db;
 let messagesCollection;
-let premiumMessageCollection;
 
 // Conectar a MongoDB
 async function connectToMongoDB() {
@@ -32,10 +30,10 @@ async function connectToMongoDB() {
         
         db = client.db(DB_NAME);
         messagesCollection = db.collection(COLLECTION_NAME);
-        premiumMessageCollection = db.collection(PREMIUM_COLLECTION_NAME);
         
         // Crear índice para ordenar por timestamp
         await messagesCollection.createIndex({ timestamp: 1 });
+        await messagesCollection.createIndex({ isPremium: 1 });
         
         console.log(`📦 Usando base de datos: ${DB_NAME}, colección: ${COLLECTION_NAME}`);
     } catch (error) {
@@ -65,17 +63,26 @@ app.get('/api/messages', async (req, res) => {
 // POST - Enviar un nuevo mensaje
 app.post('/api/messages', async (req, res) => {
     try {
-        const { username, message, timestamp } = req.body;
+        const { username, message, timestamp, isPremium } = req.body;
         
         // Validación
         if (!username || !message) {
             return res.status(400).json({ error: 'Username y message son requeridos' });
         }
         
+        // Si es premium, marcar todos los otros como no premium
+        if (isPremium) {
+            await messagesCollection.updateMany(
+                { isPremium: true },
+                { $set: { isPremium: false } }
+            );
+        }
+        
         const newMessage = {
             username: username.trim(),
             message: message.trim(),
-            timestamp: timestamp || Date.now()
+            timestamp: timestamp || Date.now(),
+            isPremium: isPremium || false
         };
         
         const result = await messagesCollection.insertOne(newMessage);
@@ -107,8 +114,8 @@ app.delete('/api/messages', async (req, res) => {
 // GET - Obtener el mensaje premium actual
 app.get('/api/premium-message', async (req, res) => {
     try {
-        const premiumMessage = await premiumMessageCollection
-            .findOne({}, { sort: { timestamp: -1 } });
+        const premiumMessage = await messagesCollection
+            .findOne({ isPremium: true }, { sort: { timestamp: -1 } });
         
         res.json(premiumMessage || null);
     } catch (error) {
@@ -117,49 +124,16 @@ app.get('/api/premium-message', async (req, res) => {
     }
 });
 
-// POST - Establecer un nuevo mensaje premium
-app.post('/api/premium-message', async (req, res) => {
-    try {
-        const { username, message, timestamp } = req.body;
-        
-        // Validación
-        if (!username || !message) {
-            return res.status(400).json({ error: 'Username y message son requeridos' });
-        }
-        
-        const newPremiumMessage = {
-            username: username.trim(),
-            message: message.trim(),
-            timestamp: timestamp || Date.now()
-        };
-        
-        // Eliminar mensaje premium anterior y agregar el nuevo
-        await premiumMessageCollection.deleteMany({});
-        const result = await premiumMessageCollection.insertOne(newPremiumMessage);
-        
-        const createdMessage = {
-            _id: result.insertedId,
-            ...newPremiumMessage
-        };
-        
-        res.status(201).json(createdMessage);
-    } catch (error) {
-        console.error('Error guardando mensaje premium:', error);
-        res.status(500).json({ error: 'Error al guardar mensaje premium' });
-    }
-});
-
 // Ruta raíz
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'Chat Backend API v2.0 - Premium Messages',
-        version: '2.0.0',
+        message: 'Chat Backend API v2.1 - Premium Messages Simplified',
+        version: '2.1.0',
         endpoints: {
             'GET /api/messages': 'Obtener todos los mensajes',
-            'POST /api/messages': 'Enviar un nuevo mensaje',
+            'POST /api/messages': 'Enviar mensaje (incluir isPremium:true para premium)',
             'DELETE /api/messages': 'Eliminar todos los mensajes',
-            'GET /api/premium-message': 'Obtener mensaje premium actual',
-            'POST /api/premium-message': 'Establecer nuevo mensaje premium'
+            'GET /api/premium-message': 'Obtener mensaje premium actual'
         }
     });
 });
