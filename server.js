@@ -14,9 +14,11 @@ app.use(express.json());
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tinchobs:tinchobs@node.xipbq4p.mongodb.net/?appName=node';
 const DB_NAME = 'CHAT';
 const COLLECTION_NAME = 'CHAT';
+const PREMIUM_COLLECTION_NAME = 'PREMIUM_MESSAGE';
 
 let db;
 let messagesCollection;
+let premiumMessageCollection;
 
 // Conectar a MongoDB
 async function connectToMongoDB() {
@@ -30,6 +32,7 @@ async function connectToMongoDB() {
         
         db = client.db(DB_NAME);
         messagesCollection = db.collection(COLLECTION_NAME);
+        premiumMessageCollection = db.collection(PREMIUM_COLLECTION_NAME);
         
         // Crear índice para ordenar por timestamp
         await messagesCollection.createIndex({ timestamp: 1 });
@@ -101,6 +104,51 @@ app.delete('/api/messages', async (req, res) => {
     }
 });
 
+// GET - Obtener el mensaje premium actual
+app.get('/api/premium-message', async (req, res) => {
+    try {
+        const premiumMessage = await premiumMessageCollection
+            .findOne({}, { sort: { timestamp: -1 } });
+        
+        res.json(premiumMessage || null);
+    } catch (error) {
+        console.error('Error obteniendo mensaje premium:', error);
+        res.status(500).json({ error: 'Error al obtener mensaje premium' });
+    }
+});
+
+// POST - Establecer un nuevo mensaje premium
+app.post('/api/premium-message', async (req, res) => {
+    try {
+        const { username, message, timestamp } = req.body;
+        
+        // Validación
+        if (!username || !message) {
+            return res.status(400).json({ error: 'Username y message son requeridos' });
+        }
+        
+        const newPremiumMessage = {
+            username: username.trim(),
+            message: message.trim(),
+            timestamp: timestamp || Date.now()
+        };
+        
+        // Eliminar mensaje premium anterior y agregar el nuevo
+        await premiumMessageCollection.deleteMany({});
+        const result = await premiumMessageCollection.insertOne(newPremiumMessage);
+        
+        const createdMessage = {
+            _id: result.insertedId,
+            ...newPremiumMessage
+        };
+        
+        res.status(201).json(createdMessage);
+    } catch (error) {
+        console.error('Error guardando mensaje premium:', error);
+        res.status(500).json({ error: 'Error al guardar mensaje premium' });
+    }
+});
+
 // Ruta raíz
 app.get('/', (req, res) => {
     res.json({ 
@@ -108,7 +156,9 @@ app.get('/', (req, res) => {
         endpoints: {
             'GET /api/messages': 'Obtener todos los mensajes',
             'POST /api/messages': 'Enviar un nuevo mensaje',
-            'DELETE /api/messages': 'Eliminar todos los mensajes'
+            'DELETE /api/messages': 'Eliminar todos los mensajes',
+            'GET /api/premium-message': 'Obtener mensaje premium actual',
+            'POST /api/premium-message': 'Establecer nuevo mensaje premium'
         }
     });
 });
