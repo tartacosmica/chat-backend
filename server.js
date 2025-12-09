@@ -68,7 +68,7 @@ app.get('/api/messages', async (req, res) => {
 // POST - Enviar un nuevo mensaje
 app.post('/api/messages', async (req, res) => {
     try {
-        const { username, message, timestamp, isPremium } = req.body;
+        const { username, message, timestamp, isPremium, bubbleColor } = req.body;
         
         // Validación
         if (!username || !message) {
@@ -86,7 +86,8 @@ app.post('/api/messages', async (req, res) => {
             username: username.trim(),
             message: message.trim(),
             timestamp: timestamp || Date.now(),
-            isPremium: isPremium || false
+            isPremium: isPremium || false,
+            bubbleColor: bubbleColor || null
         };
         
         const result = await messagesCollection.insertOne(newMessage);
@@ -148,7 +149,7 @@ app.get('/api/private-messages/:chatId', async (req, res) => {
 // POST - Enviar mensaje a chat privado
 app.post('/api/private-messages', async (req, res) => {
     try {
-        const { chatId, username, message, timestamp } = req.body;
+        const { chatId, username, message, timestamp, bubbleColor } = req.body;
         
         // Validación
         if (!chatId || !username || !message) {
@@ -159,7 +160,8 @@ app.post('/api/private-messages', async (req, res) => {
             chatId: chatId.trim(),
             username: username.trim(),
             message: message.trim(),
-            timestamp: timestamp || Date.now()
+            timestamp: timestamp || Date.now(),
+            bubbleColor: bubbleColor || null
         };
         
         const result = await privateChatsCollection.insertOne(newMessage);
