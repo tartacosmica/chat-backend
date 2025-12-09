@@ -1,6 +1,7 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const app = express();
@@ -15,10 +16,12 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tinchobs:tinchobs@
 const DB_NAME = 'CHAT';
 const COLLECTION_NAME = 'CHAT';
 const PRIVATE_CHATS_COLLECTION = 'PRIVATE_CHATS';
+const USERS_COLLECTION = 'USERS';
 
 let db;
 let messagesCollection;
 let privateChatsCollection;
+let usersCollection;
 
 // Conectar a MongoDB
 async function connectToMongoDB() {
@@ -33,12 +36,14 @@ async function connectToMongoDB() {
         db = client.db(DB_NAME);
         messagesCollection = db.collection(COLLECTION_NAME);
         privateChatsCollection = db.collection(PRIVATE_CHATS_COLLECTION);
+        usersCollection = db.collection(USERS_COLLECTION);
         
         // Crear índice para ordenar por timestamp
         await messagesCollection.createIndex({ timestamp: 1 });
         await messagesCollection.createIndex({ isPremium: 1 });
         await privateChatsCollection.createIndex({ chatId: 1 });
         await privateChatsCollection.createIndex({ timestamp: 1 });
+        await usersCollection.createIndex({ username: 1 }, { unique: true });
         
         console.log(`📦 Usando base de datos: ${DB_NAME}, colección: ${COLLECTION_NAME}`);
     } catch (error) {
@@ -48,6 +53,107 @@ async function connectToMongoDB() {
 }
 
 // Rutas de la API
+
+// POST - Registro de usuario
+app.post('/api/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username y password son requeridos' });
+        }
+        
+        if (username.length < 3) {
+            return res.status(400).json({ error: 'El username debe tener al menos 3 caracteres' });
+        }
+        
+        if (password.length < 4) {
+            return res.status(400).json({ error: 'La contraseña debe tener al menos 4 caracteres' });
+        }
+        
+        // Verificar si el usuario ya existe
+        const existingUser = await usersCollection.findOne({ username: username.trim() });
+        if (existingUser) {
+            return res.status(409).json({ error: 'El usuario ya existe' });
+        }
+        
+        // Hash de la contraseña
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const newUser = {
+            username: username.trim(),
+            password: hashedPassword,
+            createdAt: Date.now()
+        };
+        
+        await usersCollection.insertOne(newUser);
+        
+        res.status(201).json({ 
+            success: true, 
+            username: newUser.username,
+            message: 'Usuario registrado exitosamente' 
+        });
+    } catch (error) {
+        console.error('Error registrando usuario:', error);
+        res.status(500).json({ error: 'Error al registrar usuario' });
+    }
+});
+
+// POST - Login de usuario
+app.post('/api/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username y password son requeridos' });
+        }
+        
+        const user = await usersCollection.findOne({ username: username.trim() });
+        
+        if (!user) {
+            return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+        }
+        
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+        }
+        
+        res.json({ 
+            success: true, 
+            username: user.username,
+            message: 'Login exitoso' 
+        });
+    } catch (error) {
+        console.error('Error en login:', error);
+        res.status(500).json({ error: 'Error al iniciar sesión' });
+    }
+});
+
+// GET - Obtener chats privados del usuario
+app.get('/api/user-chats/:username', async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        const chats = await privateChatsCollection.aggregate([
+            { $match: { chatId: { $regex: username, $options: 'i' } } },
+            { $sort: { timestamp: -1 } },
+            { $group: {
+                _id: "$chatId",
+                lastMessage: { $first: "$message" },
+                lastTimestamp: { $first: "$timestamp" },
+                lastUsername: { $first: "$username" }
+            }},
+            { $sort: { lastTimestamp: -1 } }
+        ]).toArray();
+        
+        res.json(chats);
+    } catch (error) {
+        console.error('Error obteniendo chats del usuario:', error);
+        res.status(500).json({ error: 'Error al obtener chats' });
+    }
+});
 
 // GET - Obtener todos los mensajes
 app.get('/api/messages', async (req, res) => {
