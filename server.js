@@ -70,11 +70,10 @@ app.post('/api/messages', async (req, res) => {
             return res.status(400).json({ error: 'Username y message son requeridos' });
         }
         
-        // Si es premium, marcar todos los otros como no premium
+        // Si es premium, eliminar el mensaje premium anterior
         if (isPremium) {
-            await messagesCollection.updateMany(
-                { isPremium: true },
-                { $set: { isPremium: false } }
+            await messagesCollection.deleteMany(
+                { isPremium: true }
             );
         }
         
