@@ -161,7 +161,6 @@ app.get('/api/messages', async (req, res) => {
         const messages = await messagesCollection
             .find({ $or: [{ isPremium: false }, { isPremium: { $exists: false } }] })
             .sort({ timestamp: 1 })
-            .limit(100) // Limitar a los últimos 100 mensajes
             .toArray();
         
         res.json(messages);
