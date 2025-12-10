@@ -341,6 +341,7 @@ app.get('/api/my-private-chats/:username', async (req, res) => {
                 otherUsername: otherUsername,
                 lastMessage: chat.lastMessage,
                 lastMessageTime: chat.lastTimestamp,
+                lastUsername: chat.lastUsername,
                 unreadCount: 0 // Podrías implementar conteo de no leídos después
             };
         });
