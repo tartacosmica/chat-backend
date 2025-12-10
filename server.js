@@ -159,7 +159,7 @@ app.get('/api/user-chats/:username', async (req, res) => {
 app.get('/api/messages', async (req, res) => {
     try {
         const messages = await messagesCollection
-            .find({})
+            .find({ $or: [{ isPremium: false }, { isPremium: { $exists: false } }] })
             .sort({ timestamp: 1 })
             .limit(100) // Limitar a los últimos 100 mensajes
             .toArray();
