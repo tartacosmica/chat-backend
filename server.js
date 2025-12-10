@@ -308,11 +308,56 @@ app.get('/api/active-users', async (req, res) => {
     }
 });
 
+// GET - Obtener chats privados donde el usuario es destinatario
+app.get('/api/my-private-chats/:username', async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        // Buscar todos los chats donde el usuario aparece en el chatId (como primero o segundo)
+        const chats = await privateChatsCollection.aggregate([
+            { $match: { 
+                chatId: { $regex: username, $options: 'i' }
+            }},
+            { $sort: { timestamp: -1 } },
+            { $group: {
+                _id: "$chatId",
+                lastMessage: { $first: "$message" },
+                lastTimestamp: { $first: "$timestamp" },
+                lastUsername: { $first: "$username" }
+            }},
+            { $sort: { lastTimestamp: -1 } }
+        ]).toArray();
+        
+        // Formatear respuesta
+        const formattedChats = chats.map(chat => {
+            const chatId = chat._id;
+            const parts = chatId.split('_');
+            // Determinar quién es el otro usuario (el que NO es el usuario actual)
+            const otherUsername = parts[0].toLowerCase() === username.toLowerCase() 
+                ? parts[1] 
+                : parts[0];
+            
+            return {
+                chatId: chatId,
+                otherUsername: otherUsername,
+                lastMessage: chat.lastMessage,
+                lastMessageTime: chat.lastTimestamp,
+                unreadCount: 0 // Podrías implementar conteo de no leídos después
+            };
+        });
+        
+        res.json(formattedChats);
+    } catch (error) {
+        console.error('Error obteniendo chats privados:', error);
+        res.status(500).json({ error: 'Error al obtener chats privados' });
+    }
+});
+
 // Ruta raíz
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'Chat Backend API v2.2 - Private Chats',
-        version: '2.2.0',
+        message: 'Chat Backend API v2.3 - Private Chats with Notifications',
+        version: '2.3.0',
         endpoints: {
             'GET /api/messages': 'Obtener todos los mensajes',
             'POST /api/messages': 'Enviar mensaje (incluir isPremium:true para premium)',
@@ -320,7 +365,10 @@ app.get('/', (req, res) => {
             'GET /api/premium-message': 'Obtener mensaje premium actual',
             'GET /api/active-users': 'Obtener usuarios activos',
             'GET /api/private-messages/:chatId': 'Obtener mensajes de chat privado',
-            'POST /api/private-messages': 'Enviar mensaje a chat privado'
+            'POST /api/private-messages': 'Enviar mensaje a chat privado',
+            'GET /api/my-private-chats/:username': 'Obtener lista de chats privados del usuario',
+            'POST /api/register': 'Registrar nuevo usuario',
+            'POST /api/login': 'Iniciar sesión'
         }
     });
 });
