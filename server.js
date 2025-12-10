@@ -353,11 +353,28 @@ app.get('/api/my-private-chats/:username', async (req, res) => {
     }
 });
 
+// Eliminar chat privado
+app.delete('/api/private-chat/:chatId', async (req, res) => {
+    try {
+        const { chatId } = req.params;
+        
+        // Eliminar todos los mensajes del chat
+        const privateChatsCollection = db.collection('PRIVATE_CHATS');
+        await privateChatsCollection.deleteMany({ chatId });
+        
+        console.log(`Chat privado ${chatId} eliminado`);
+        res.json({ success: true, message: 'Chat eliminado correctamente' });
+    } catch (error) {
+        console.error('Error eliminando chat privado:', error);
+        res.status(500).json({ error: 'Error al eliminar chat' });
+    }
+});
+
 // Ruta raíz
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'Chat Backend API v2.3 - Private Chats with Notifications',
-        version: '2.3.0',
+        message: 'Chat Backend API v2.4 - Delete Private Chats',
+        version: '2.4.0',
         endpoints: {
             'GET /api/messages': 'Obtener todos los mensajes',
             'POST /api/messages': 'Enviar mensaje (incluir isPremium:true para premium)',
@@ -367,6 +384,7 @@ app.get('/', (req, res) => {
             'GET /api/private-messages/:chatId': 'Obtener mensajes de chat privado',
             'POST /api/private-messages': 'Enviar mensaje a chat privado',
             'GET /api/my-private-chats/:username': 'Obtener lista de chats privados del usuario',
+            'DELETE /api/private-chat/:chatId': 'Eliminar chat privado',
             'POST /api/register': 'Registrar nuevo usuario',
             'POST /api/login': 'Iniciar sesión'
         }
