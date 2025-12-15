@@ -238,13 +238,17 @@ app.get('/api/premium-message', async (req, res) => {
 app.get('/api/private-messages/:chatId', async (req, res) => {
     try {
         const { chatId } = req.params;
+        // Obtener todos los mensajes, ordenar por timestamp descendente, tomar los últimos 100
         const messages = await privateChatsCollection
             .find({ chatId })
-            .sort({ timestamp: 1 })
+            .sort({ timestamp: -1 })
             .limit(100)
             .toArray();
         
-        res.json(messages);
+        // Revertir el orden para que estén cronológicamente (más viejos primero)
+        const sortedMessages = messages.reverse();
+        
+        res.json(sortedMessages);
     } catch (error) {
         console.error('Error obteniendo mensajes privados:', error);
         res.status(500).json({ error: 'Error al obtener mensajes privados' });
